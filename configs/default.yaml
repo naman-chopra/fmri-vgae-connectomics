@@ -1,0 +1,30 @@
+# Experiment Configuration for fmri-vgae-connectomics
+
+dataset:
+  name: "HCP_S1200"
+  atlas: "Power-264"
+  num_rois: 264
+  timepoints: 1200
+  positive_edges_only: true
+  threshold_diag: true
+
+model:
+  type: "VGAE"                  # Options: VGAE, GAE, GAT_VGAE
+  input_dim: 1200              # Dimension of ROI BOLD time-series
+  hidden_dim: 128              # Hidden layer representation
+  latent_dim: 32               # Latent embedding dimension
+  encoder_dropout: 0.1
+  decoder: "inner_product"      # Inner-product link prediction
+
+training:
+  epochs: 100
+  learning_rate: 0.001
+  weight_decay: 1e-4
+  kl_weight: 1.0               # Beta weight for KL divergence
+  device: "cuda"               # Options: cuda, cpu
+  log_interval: 10
+
+clustering:
+  inter_subject_k: 4           # Detected via KNEED on Laplacian spectrum
+  modularity_algorithm: "spectral" # Options: spectral, louvain, icsc
+  num_consensus_iter: 50

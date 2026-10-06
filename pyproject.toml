@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fmri-vgae-connectomics"
+version = "1.0.0"
+description = "Variational Graph Auto-Encoders for Robust Functional Connectome Denoising and Group-Level Community Detection in fMRI"
+readme = "README.md"
+authors = [{ name = "Naman Chopra", email = "naman.chopra025@gmail.com" }]
+license = { text = "MIT" }
+requires-python = ">=3.9"
+dependencies = [
+    "torch>=2.0.0",
+    "numpy>=1.22.0",
+    "scipy>=1.8.0",
+    "scikit-learn>=1.0.0",
+    "kneed>=0.8.0",
+    "networkx>=2.8.0",
+    "matplotlib>=3.5.0",
+    "seaborn>=0.12.0",
+    "pandas>=1.5.0",
+    "pyyaml>=6.0",
+    "tqdm>=4.65.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/naman-chopra/fmri-vgae-connectomics"
+Repository = "https://github.com/naman-chopra/fmri-vgae-connectomics"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
