@@ -51,6 +51,18 @@ The repeated references to `timeseries_818`, `ts_1000`, and `timeseries_final` i
 6. Which VGAE notebook represents the final internship result?
 7. Are the saved arrays and metadata shareable, or only usable for local reproduction?
 
+## Current local artifact inventory
+
+The local archive currently contains many saved denoised adjacency matrices and a metadata CSV, but it does not contain the original `IIT_RPR/data/generated/` input tree referenced by the notebooks. Therefore, the original raw-input experiment cannot yet be reproduced end to end from the extracted local artifacts alone.
+
+Use the inventory tool when additional artifacts are provided:
+
+```bash
+python scripts/inspect_artifacts.py raw_source/IIT_RPR --output artifact-inventory.json
+```
+
+The generated inventory is for local analysis and should not be committed if it contains private paths or data details.
+
 ## Reproduction policy
 
 The implementation in `src/` should first reproduce the original data contract and baseline behavior. It should not silently correct methodological choices. Improvements such as explicit file matching, held-out splits, alternative losses, and stronger baselines belong in separate experiments.
