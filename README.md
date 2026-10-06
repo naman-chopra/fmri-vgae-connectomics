@@ -53,7 +53,9 @@ Create an environment and install the project dependencies:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+pip install -r requirements.txt --no-deps
+pip install torch-geometric numpy scipy scikit-learn kneed networkx matplotlib seaborn pandas pyyaml tqdm pytest
 ```
 
 Run the synthetic end-to-end experiment:

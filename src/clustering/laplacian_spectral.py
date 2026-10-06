@@ -27,8 +27,8 @@ def compute_normalized_laplacian(adj_matrix: np.ndarray) -> np.ndarray:
         Normalized Laplacian matrix of shape (N, N)
     """
     degree = np.sum(adj_matrix, axis=1)
-    d_inv_sqrt = np.power(degree, -0.5, where=degree > 0)
-    d_inv_sqrt[degree == 0] = 0.0
+    d_inv_sqrt = np.zeros_like(degree, dtype=float)
+    np.power(degree, -0.5, out=d_inv_sqrt, where=degree > 0)
 
     D_mat = np.diag(d_inv_sqrt)
     L_norm = np.eye(adj_matrix.shape[0]) - D_mat @ adj_matrix @ D_mat
@@ -91,6 +91,10 @@ def cluster_subjects(
         labels: Cluster assignment array of shape (S,)
         metrics: Dictionary containing silhouette, Calinski-Harabasz, and Davies-Bouldin scores
     """
+    similarity_matrix = np.asarray(similarity_matrix, dtype=float)
+    similarity_matrix = np.maximum(similarity_matrix, 0.0)
+    np.fill_diagonal(similarity_matrix, 0.0)
+
     clustering = SpectralClustering(
         n_clusters=n_clusters,
         affinity="precomputed",
@@ -99,10 +103,12 @@ def cluster_subjects(
     )
     labels = clustering.fit_predict(similarity_matrix)
 
-    # Compute validation cluster quality metrics
-    sil = float(silhouette_score(similarity_matrix, labels, metric="precomputed"))
-    cal = float(calinski_harabasz_score(similarity_matrix, labels))
-    dav = float(davies_bouldin_score(similarity_matrix, labels))
+    # Convert affinity to a zero-diagonal distance matrix for validation.
+    distance_matrix = 1.0 - np.clip(similarity_matrix, 0.0, 1.0)
+    np.fill_diagonal(distance_matrix, 0.0)
+    sil = float(silhouette_score(distance_matrix, labels, metric="precomputed"))
+    cal = float(calinski_harabasz_score(distance_matrix, labels))
+    dav = float(davies_bouldin_score(distance_matrix, labels))
 
     metrics = {
         "silhouette_score": sil,
