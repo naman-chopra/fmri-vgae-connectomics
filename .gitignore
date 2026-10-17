@@ -24,6 +24,8 @@ wheels/
 *.egg
 
 # Data and artifacts
+data/
+original-data/
 data/raw/
 data/processed/
 checkpoints/
@@ -39,3 +41,10 @@ raw_source/
 .idea/
 *.swp
 .DS_Store
+
+# Internal development notes & agent guidance
+AGENTS.md
+docs/research-execution.md
+scripts/experiments_archive/
+
+

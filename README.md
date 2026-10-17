@@ -1,107 +1,137 @@
-# Functional Connectome Denoising with Variational Graph Autoencoders
+# fMRI Connectome Denoising with Variational Graph Autoencoders
 
-This repository develops a graph-learning pipeline for denoising resting-state functional MRI connectomes and evaluating the stability of downstream community structure.
+An open-source research implementation investigating graph neural autoencoders for denoising resting-state fMRI functional connectomes, and evaluating whether learned graph representations preserve subject-level clustering and downstream modular brain networks.
 
-The project is motivated by an undergraduate research internship on group-level modular structure in functional MRI. It is currently a research engineering scaffold with a fully runnable synthetic benchmark. The real-data reproduction path is intentionally kept separate until data provenance, preprocessing, and institutional sharing constraints are documented.
+## Architecture & Pipeline Flow
 
-## Research question
+```mermaid
+flowchart TD
+    subgraph DataPrep ["1. Connectome Extraction (HCP S1200 / Power-264)"]
+        A["4D BOLD fMRI Time Series<br>(4 runs, T = 1200)"] --> B["Power-264 Atlas Parcellation<br>(N = 264 ROIs)"]
+        B --> C["Node Features: Standardized BOLD Signals<br><b>X</b> ∈ ℝ^(264 × 4800)"]
+        B --> D["Pairwise Pearson Correlation Matrix<br><b>A</b> ∈ ℝ^(264 × 264)"]
+    end
 
-Can a variational graph autoencoder recover a more stable functional-connectivity structure from a noisy single-session connectome than direct thresholding or an unprocessed graph?
+    subgraph VGAE ["2. Variational Graph Autoencoder (VGAE) Denoising"]
+        D -->|Controlled Edge Corruption| E["Corrupted Adjacency <b>A_noisy</b>"]
+        C & E --> F["2-Layer GCN Encoder<br>(Symmetric Degree Normalization)"]
+        F --> G["Latent Distribution Parameters<br><b>μ</b> and <b>log(σ²)</b>"]
+        G --> H["Reparameterization Trick<br><b>Z</b> = <b>μ</b> + <b>σ</b> ⊙ <b>ε</b>,  <b>ε</b> ~ 𝒩(0, I)"]
+        H --> I["Bounded Scaled Inner-Product Decoder<br><b>Â</b> = σ(α(<b>Z</b><b>Z</b>ᵀ) + β)"]
+    end
 
-The working pipeline is:
-
-```text
-BOLD time series
-        |
-        v
-ROI-level standardization and Pearson connectivity
-        |
-        v
-Noisy weighted brain graph + node features
-        |
-        v
-GCN encoder -> variational latent representation -> inner-product decoder
-        |
-        v
-Denoised connectome -> community detection and modularity analysis
+    subgraph Evaluation ["3. Evaluation & Downstream Tasks"]
+        I & D --> J["Held-Out Edge Reconstruction (MSE)<br>vs. Identity Baseline (0.0449)"]
+        I --> K["Normalized Laplacian Eigen-Clustering<br>& KNEED Subgroup Analysis (k = 4)"]
+    end
 ```
 
-## Current status
+## Research Question
 
-Implemented:
+Can a variational graph autoencoder recover continuous functional-connectivity structure from corrupted resting-state fMRI connectomes while preserving downstream subject and community organization?
 
-- ROI-wise BOLD standardization and functional-connectivity construction
-- Weighted graph conversion utilities
-- Native PyTorch GCN encoder
-- Variational graph autoencoder with an inner-product decoder
-- Reconstruction, link-prediction, and modularity metrics
-- Spectral clustering, KNEED-based subgroup exploration, and consensus clustering utilities
-- Synthetic multi-subject connectome generator with controllable modules and noise
-- End-to-end synthetic experiment with saved training and connectome visualizations
+## Empirical Results
 
-Not yet claimed:
+Evaluated on the validated Human Connectome Project (HCP) cohort (818 subjects, Power-264 atlas) under 30% synthetic positive edge corruption on held-out test splits:
 
-- A validated result on the original internship dataset
-- Generalization to unseen subjects or sessions
-- A clinical or neuroscientific finding
-- Publication-level benchmarking
+| Method | Test Edge MSE | Description |
+|:---|---:|:---|
+| **Noisy-input baseline** | `0.04491` | Unprocessed corrupted identity baseline |
+| **Dense matrix denoiser** | `0.00718` | Non-graph matrix baseline |
+| **Bounded BOLD-feature VGAE** | `0.01154` | Proposed 2-layer GCN VGAE with continuous bounded decoder |
+| **Residual Blend (VGAE + Noisy)** | `0.00921` | Validation-selected residual to mitigate over-smoothing |
 
-## Quick start
+The bounded VGAE demonstrates significant reconstruction gains over the noisy input baseline. A residual blend mitigates over-smoothing across individual connectome variances. Downstream community results provide exploratory insights into modular stability across subject cohorts.
 
-Create an environment and install the project dependencies:
+
+## What is implemented
+
+- Shape-aware HCP MATLAB archive validation and provenance checks
+- Four-run BOLD standardization and Power-264 connectome handling
+- Native PyTorch weighted GCN encoder and variational graph autoencoder
+- Bounded continuous-connectivity decoder for positive correlations
+- Dense matrix denoising baseline
+- Held-out subject evaluation with identity baselines
+- GPU-accelerated training and similarity computation
+- KNEED/spectral subject clustering
+- ICSC-style consensus community analysis
+- Noise-level and random-seed robustness evaluation
+- Demographic cross-reference and reproducible result reports
+
+## Dataset and data policy
+
+The primary reproduction source is a locally recovered HCP MATLAB archive. Shape-aware validation identifies 818 complete subjects. Raw HCP data, extracted data, feature caches, checkpoints, and generated reports are intentionally excluded from Git.
+
+The separate NumPy archive is not silently merged with the MATLAB cohort. The newer HCP release is reserved for future external validation rather than mixed into the primary experiment.
+
+Users must obtain HCP data under the applicable HCP data-use terms. This repository does not redistribute the dataset.
+
+## Reproduce the main experiment
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install torch --index-url https://download.pytorch.org/whl/cpu
-pip install -r requirements.txt --no-deps
-pip install torch-geometric numpy scipy scikit-learn kneed networkx matplotlib seaborn pandas pyyaml tqdm pytest
+pip install -e .
 ```
 
-Run the synthetic end-to-end experiment:
+Create caches from an extracted HCP archive:
 
 ```bash
-python scripts/run_synthetic_demo.py --epochs 50 --output_dir demo_outputs
+python scripts/cache_hcp_adjacencies.py \
+  --archive /path/to/HCP_rs_power \
+  --output-dir /path/to/hcp-cache \
+  --include-features
 ```
 
-The command generates:
+Run the selected full-cohort VGAE:
 
-- a synthetic multi-subject connectome collection;
-- a VGAE denoising run;
-- reconstruction and link-prediction metrics;
-- modularity comparisons for noisy, denoised, and target graphs;
-- connectome comparison and training-curve figures in `demo_outputs/`.
+```bash
+python scripts/run_final_bounded_vgae.py \
+  --cache /path/to/hcp-cache \
+  --epochs 10 --noise-fraction 0.30 \
+  --output-dir data/processed/final-bounded-vgae
+```
 
-## Repository layout
+Run robustness evaluation and report generation:
+
+```bash
+python scripts/evaluate_frozen_robustness.py \
+  --cache /path/to/hcp-cache \
+  --model data/processed/final-bounded-vgae/model.pt \
+  --output data/processed/final-bounded-vgae/robustness/frozen_report.json
+python scripts/generate_final_report.py
+```
+
+Run tests with `PYTHONPATH=. pytest -q`.
+
+## Documentation
+
+- [Research execution record](docs/research-execution.md): research story, decisions, results, mismatches, and limitations.
+- [Pipeline flow](docs/pipeline-flow.md): computational data and model path.
+- [AGENTS.md](AGENTS.md): repository rules for experiments and handoff.
+- [Original pipeline notes](docs/original-pipeline.md): historical context.
+
+## Repository structure
 
 ```text
 configs/       Experiment configuration
-scripts/       Runnable experiments
-src/data/      BOLD preprocessing and dataset abstractions
-src/models/    GCN and VGAE implementations
-src/clustering/Community detection and consensus utilities
-src/utils/     Metrics and visualization
-tests/         Regression and scientific sanity checks
+docs/          Research record and methodological documentation
+scripts/       Reproducible experiment entry points
+src/data/      HCP readers, preprocessing, noise, and datasets
+src/models/    GCN, VGAE, losses, and decoders
+src/clustering Community and subject-level clustering utilities
+src/utils/     Metrics and visualization helpers
+tests/         Data-contract and regression tests
 ```
 
-The historical internship material is not part of the public source distribution. It is retained locally under `raw_source/` for provenance and review, and is excluded from Git by default.
+## Limitations
 
-## Methodological notes
+- The exact internship checkpoint, noise procedure, and all intermediate files were not recovered; exact replication is not claimed.
+- Synthetic edge corruption is a controlled proxy, not a complete model of fMRI acquisition noise.
+- Current denoising experiments use positive-only connectomes; historical signed-connectome clustering remains a separate protocol.
+- Community and demographic findings are exploratory and require external validation and stronger statistical controls.
+- The newer HCP release has not yet been used as an external validation cohort.
 
-The synthetic benchmark creates a clean connectome from controlled modular BOLD signals and then adds symmetric edge noise. This is useful for testing implementation behavior, but it is not a substitute for held-out real fMRI evaluation.
+## License and citation
 
-Before a real-data experiment is presented as a result, the project should add:
-
-1. a documented dataset and atlas acquisition procedure;
-2. subject/session-level train, validation, and test separation;
-3. baselines such as thresholding, shrinkage, and an ordinary autoencoder;
-4. repeated-seed confidence intervals;
-5. downstream community-stability measures in addition to reconstruction error.
-
-## Reproducibility and scope
-
-Experiments should record the random seed, data split, preprocessing choices, model configuration, and software environment. Results from the synthetic demo should be described as implementation validation, not as evidence that the method improves real neuroimaging analyses.
-
-## License
-
-The source code is intended to be released under the MIT License. Dataset copyrights, source papers, institutional documents, and third-party assets remain subject to their original licenses and are not relicensed by this repository.
+Code is released under the MIT License. Dataset rights and HCP terms remain with their original providers. See [CITATION.cff](CITATION.cff) for citation metadata.

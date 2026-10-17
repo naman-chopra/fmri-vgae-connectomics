@@ -31,3 +31,8 @@ Repository = "https://github.com/naman-chopra/fmri-vgae-connectomics"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["src*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+

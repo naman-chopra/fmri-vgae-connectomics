@@ -15,6 +15,7 @@ def vgae_loss(
     logvar: torch.Tensor,
     kl_weight: float = 1.0,
     pos_weight: float = 1.0,
+    reconstruction_mask: torch.Tensor = None,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Computes joint Reconstruction Loss (MSE/BCE) + KL Divergence for VGAE.
@@ -33,7 +34,10 @@ def vgae_loss(
         kl_loss: KL divergence component
     """
     # MSE Reconstruction Loss on non-diagonal edge weights
-    recon_loss = F.mse_loss(reconstructed_adj, target_adj, reduction="mean")
+    if reconstruction_mask is None:
+        recon_loss = F.mse_loss(reconstructed_adj, target_adj, reduction="mean")
+    else:
+        recon_loss = F.mse_loss(reconstructed_adj[reconstruction_mask], target_adj[reconstruction_mask], reduction="mean")
 
     # Analytical KL-Divergence with standard Normal prior N(0, I)
     # KL = -0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)

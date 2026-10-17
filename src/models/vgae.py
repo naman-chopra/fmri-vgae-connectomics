@@ -19,6 +19,9 @@ class InnerProductDecoder(nn.Module):
     def __init__(self, activation: str = "sigmoid"):
         super().__init__()
         self.activation = activation
+        if activation == "bounded":
+            self.logit_scale = nn.Parameter(torch.tensor(1.0))
+            self.logit_bias = nn.Parameter(torch.tensor(-2.4))
 
     def forward(self, z: torch.Tensor) -> torch.Tensor:
         """
@@ -28,10 +31,12 @@ class InnerProductDecoder(nn.Module):
         Returns:
             reconstructed_adj: Symmetric adjacency tensor of shape (N, N)
         """
-        adj_logits = torch.mm(z, z.t())
+        adj_logits = torch.mm(z, z.t()) / max(z.shape[-1], 1) ** 0.5
 
         if self.activation == "sigmoid":
             adj_hat = torch.sigmoid(adj_logits)
+        elif self.activation == "bounded":
+            adj_hat = torch.sigmoid(self.logit_scale * adj_logits + self.logit_bias)
         elif self.activation == "relu":
             adj_hat = F.relu(adj_logits)
         elif self.activation == "none":

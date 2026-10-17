@@ -2,6 +2,7 @@
 Dataset Loaders and Synthetic Connectome Generator for fMRI Graphs.
 """
 
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import os
 import numpy as np
@@ -13,6 +14,58 @@ from src.data.preprocessing import (
     compute_functional_connectivity,
     matrix_to_edge_index_and_weight,
 )
+from src.data.hcp_archive import (
+    load_matlab_correlation,
+    load_matlab_timeseries,
+    validated_matlab_subjects,
+)
+
+
+class HCPMatlabConnectomeDataset(Dataset):
+    """Lazy dataset for complete subjects in ``HCP_rs_power.zip``.
+
+    The archive is treated as the source of truth.  A subject is admitted only
+    when all four time-series and all four correlation files are present.  Data
+    is loaded on demand, so the 6 GB archive is never extracted wholesale.
+    """
+
+    def __init__(
+        self,
+        archive_path: str | Path,
+        subjects: Optional[List[str]] = None,
+        positive_only: bool = False,
+    ):
+        self.archive_path = Path(archive_path)
+        complete, self.rejected_subjects = validated_matlab_subjects(self.archive_path)
+        complete = set(complete)
+        self.subjects = sorted(complete if subjects is None else complete & set(subjects))
+        self.positive_only = positive_only
+
+    def __len__(self) -> int:
+        return len(self.subjects)
+
+    def __getitem__(self, index: int) -> Dict[str, torch.Tensor | str]:
+        subject = self.subjects[index]
+        runs = [load_matlab_timeseries(self.archive_path, subject, run) for run in range(1, 5)]
+        correlations = [load_matlab_correlation(self.archive_path, subject, run) for run in range(1, 5)]
+        concatenated = np.concatenate(runs, axis=1)
+        features = standardize_bold_signals(concatenated)
+        averaged = np.mean(correlations, axis=0)
+        averaged = (averaged + averaged.T) / 2.0
+        if self.positive_only:
+            averaged = np.maximum(averaged, 0.0)
+        np.fill_diagonal(averaged, 0.0)
+        adjacency = torch.from_numpy(averaged.astype(np.float32))
+        edge_index, edge_weight = matrix_to_edge_index_and_weight(adjacency)
+        return {
+            "subject": subject,
+            "x": torch.from_numpy(features.astype(np.float32)),
+            "run_timeseries": torch.from_numpy(np.stack(runs).astype(np.float32)),
+            "run_adjs": torch.from_numpy(np.stack(correlations).astype(np.float32)),
+            "adj": adjacency,
+            "edge_index": edge_index,
+            "edge_weight": edge_weight,
+        }
 
 
 class ConnectomeGraphDataset(Dataset):

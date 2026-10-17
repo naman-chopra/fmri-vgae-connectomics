@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+title: "fMRI Connectome Denoising with Variational Graph Autoencoders"
+message: "If this repository contributes to your work, please cite it."
+type: software
+authors:
+  - family-names: Chopra
+    given-names: Naman
+    email: naman.chopra025@gmail.com
+repository-code: https://github.com/naman-chopra/fmri-vgae-connectomics
+url: https://github.com/naman-chopra/fmri-vgae-connectomics
+license: MIT
+version: 1.0.0
+date-released: 2026-10-17

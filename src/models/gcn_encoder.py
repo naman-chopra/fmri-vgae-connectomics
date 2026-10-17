@@ -38,8 +38,17 @@ class NativeGCNLayer(nn.Module):
             x: Node feature matrix of shape (N, in_features)
             adj: Normalized adjacency matrix of shape (N, N)
         """
-        # Graph propagation: A * X
-        support = torch.mm(adj, x)
+        # Symmetric GCN normalization with an explicit self-loop. The old
+        # implementation assumed callers had normalized adjacency but did not
+        # enforce it, which allowed high-degree connectome nodes to amplify
+        # activations and destabilize training.
+        n = adj.shape[0]
+        identity = torch.eye(n, device=adj.device, dtype=adj.dtype)
+        propagated_adj = adj + identity
+        degree = propagated_adj.sum(dim=1).clamp_min(1e-8)
+        inv_sqrt_degree = degree.rsqrt()
+        normalized_adj = inv_sqrt_degree[:, None] * propagated_adj * inv_sqrt_degree[None, :]
+        support = torch.mm(normalized_adj, x)
         # Linear transformation
         output = self.linear(support)
         return output
