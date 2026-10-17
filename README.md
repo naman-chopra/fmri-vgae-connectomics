@@ -102,14 +102,12 @@ python scripts/evaluate_frozen_robustness.py \
 python scripts/generate_final_report.py
 ```
 
-Run tests with `PYTHONPATH=. pytest -q`.
+Run tests with `pytest -q`.
 
 ## Documentation
 
-- [Research execution record](docs/research-execution.md): research story, decisions, results, mismatches, and limitations.
 - [Pipeline flow](docs/pipeline-flow.md): computational data and model path.
-- [AGENTS.md](AGENTS.md): repository rules for experiments and handoff.
-- [Original pipeline notes](docs/original-pipeline.md): historical context.
+- [Original pipeline notes](docs/original-pipeline.md): historical project context.
 
 ## Repository structure
 
